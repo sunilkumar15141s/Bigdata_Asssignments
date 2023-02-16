@@ -1,0 +1,109 @@
+create database hive_db;
+
+use hive_db;
+
+hadoop fs -mkdir /assignment
+hadoop fs -put sales_order_data.csv /assignment
+
+create table sales_order_csv(
+ORDERNUMBER int,
+QUANTITYORDERED int,
+PRICEEACH float,
+ORDERLINENUMBER int,
+SALES float,
+STATUS string,
+QTR_ID int,
+MONTH_ID int,
+YEAR_ID int,
+PRODUCTLINE string,
+MSRP int,
+PRODUCTCODE string,
+phone string,
+CITY string,
+STATE string,
+POSTALCODE string,
+COUNTRY string,
+TERRITORY string,
+CONTACTLASTNAME string,
+CONTACTFIRSTNAME string,
+DEALSIZE string
+)
+row format delimited
+fields terminated by ','
+tblproperties ("skip.header.line.count" = "1");
+
+Load data inpath '/assignment/sales_order_data.csv' into table sales_order_csv;
+
+set hive.cli.print.header =true;
+
+select * from sales_order_csv limit 5;
+
+create table sales_order_orc(
+ORDERNUMBER int,
+QUANTITYORDERED int,
+PRICEEACH float,
+ORDERLINENUMBER int,
+SALES float,
+STATUS string,
+QTR_ID int,
+MONTH_ID int,
+YEAR_ID int,
+PRODUCTLINE string,
+MSRP int,
+PRODUCTCODE string,
+phone string,
+CITY string,
+STATE string,
+POSTALCODE string,
+COUNTRY string,
+TERRITORY string,
+CONTACTLASTNAME string,
+CONTACTFIRSTNAME string,
+DEALSIZE string
+)
+stored as orc;
+
+from sales_order_csv insert overwrite table sales_order_orc select *;
+
+select * from sales_order_orc limit 5;
+
+a) SELECT YEAR_ID as year, sum(SALES)as Sales_Per_Year From sales_order_orc Group By YEAR_ID;
+O/P:-
+year    sales_per_year
+2003    3516979.547241211
+2004    4724162.593383789
+2005    1791486.7086791992
+Time taken: 25.37 seconds, Fetched: 3 row(s)
+b)
+SELECT PRODUCTLINE FROM ( SELECT PRODUCTLINE, SUM(QUANTITYORDERED) AS TOTAL_ORDERS FROM sales_order_orc Group By PRODUCTLINE ORDER BY TOTAL_ORDERS desc LIMIT 1) tmp;
+O/P:-
+productline
+Classic Cars
+
+C)SELECT QTR_ID AS QUARTER, SUM(SALES) AS Sales_per_quarter FROM sales_order_orc Group BY QTR_ID;
+O/P:-
+quarter sales_per_quarter
+1       2350817.726501465
+2       2048120.3029174805
+3       1758910.808959961
+4       3874780.010925293
+
+D)
+SELECT QUARTER FROM (SELECT QTR_ID AS QUARTER, SUM(SALES) AS Sales_per_quarter FROM sales_order_orc Group BY QTR_ID ORDER BY QTR_ID ASC LIMIT 1) tmp;
+O/P:-
+Total MapReduce CPU Time Spent: 9 seconds 210 msec
+OK
+quarter
+1
+
+E) 
+SELECT MAX(CASE WHEN r_m=1 then COUNTRY end) max_sale_per_country,MIN(CASE WHEN r_min=1 then COUNTRY end) min_sale_country FROM (SELECT COUNTRY,SUM(SALES), row_number() OVER(ORDER BY SUM(SALES)) r_min,row_number() OVER(ORDER BY SUM(SALES) DESC) r_m from sales_order_orc group By COUNTRY) tmp;
+
+F)SELECT CITY,QTR_ID,SUM(SALES) AS QUARTERLY_SALES FROM sales_order_orc Group By CITY,QTR_ID;
+
+H)SELECT YEAR_ID,MONTH_ID FROM(SELECT YEAR_ID,MONTH_ID,SUM(QUANTITYORDERED),
+     DENSE_RANK() OVER(PARTITON BY YEAR_ID ORDER BY SUM(QUANTITYORDERED) DESC) AS TMP
+	 FROM sales_order_orc
+	 Group By YEAR_ID,MONTH_ID) TEMP WHERE TMP =1;
+
+
